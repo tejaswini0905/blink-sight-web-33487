@@ -34,10 +34,13 @@ export const WebcamStream = ({
   useEffect(() => {
     const loadModel = async () => {
       try {
-        // Load with optimal configuration for better detection
+        console.log("Loading AI model for optimal detection...");
+        // Load with the most accurate configuration
         const loadedModel = await cocoSsd.load({
-          base: 'mobilenet_v2' // More accurate than lite model
+          base: 'mobilenet_v2', // Most accurate base model
+          modelUrl: undefined // Use default CDN for best performance
         });
+        console.log("AI model loaded successfully!");
         setModel(loadedModel);
         setIsModelLoading(false);
       } catch (error) {
@@ -52,18 +55,21 @@ export const WebcamStream = ({
   useEffect(() => {
     const startWebcam = async () => {
       try {
-        // Request optimal video settings for detection
+        console.log("Starting webcam with optimal settings...");
+        // Request maximum quality settings for best detection
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { 
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-            frameRate: { ideal: 30 },
-            facingMode: "user"
+            width: { ideal: 1920, min: 1280 },
+            height: { ideal: 1080, min: 720 },
+            frameRate: { ideal: 60, min: 30 },
+            facingMode: "user",
+            aspectRatio: { ideal: 16/9 }
           },
         });
 
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
+          console.log("Webcam started successfully!");
         }
       } catch (error) {
         console.error("Error accessing webcam:", error);
@@ -94,13 +100,17 @@ export const WebcamStream = ({
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
 
-        // Detect with max possible detections and custom score threshold
-        const predictions = await model.detect(video, 100, confidenceThreshold);
+        // Detect with maximum detections and optimal threshold for accuracy
+        // Using 20 as maxNumBoxes for better performance while maintaining accuracy
+        const predictions = await model.detect(video, 20, confidenceThreshold / 2);
 
-        // Filter predictions based on selected objects
-        const filteredPredictions = selectedObjects.length === 0 
+        // Filter predictions based on selected objects and apply confidence threshold
+        let filteredPredictions = selectedObjects.length === 0 
           ? predictions 
           : predictions.filter(p => selectedObjects.includes(p.class));
+        
+        // Apply the confidence threshold for better accuracy
+        filteredPredictions = filteredPredictions.filter(p => p.score >= confidenceThreshold);
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
